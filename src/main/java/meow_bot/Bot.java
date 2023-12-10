@@ -43,6 +43,8 @@ public class Bot extends ListenerAdapter implements Runnable{
 
     private HashMap<String, VoiceChannel> voicechannelmap = new HashMap<>();
 
+    private HashMap<String, Integer> zeiteinheiten = new HashMap<>();
+
     TextChannel allgemein;
     TextChannel botzentrale;
     TextChannel meow;
@@ -50,6 +52,10 @@ public class Bot extends ListenerAdapter implements Runnable{
 
 
     public Bot(){
+        zeiteinheiten.put("ms", 1);
+        zeiteinheiten.put("s", 1000);
+        zeiteinheiten.put("min", 60000);
+        zeiteinheiten.put("h", 3600000);
     }
     public Bot(Guild guild,HashMap<String, TextChannel> channelmap, HashMap<String, VoiceChannel> voicechannelmap ,String content, SlashCommandInteractionEvent event){
         this.guild = guild;
@@ -106,6 +112,7 @@ public class Bot extends ListenerAdapter implements Runnable{
     @Override
     public void onReady(ReadyEvent event){
         guild = event.getJDA().getGuildById("580065346363457536");
+        load_channels();
         guild.updateCommands().addCommands(
                 Commands.slash("kill","Stopt alle laufend Commands"),
                 Commands.slash("kritik","Teile uns deine Kritik mit")
@@ -137,12 +144,18 @@ public class Bot extends ListenerAdapter implements Runnable{
                 Commands.slash("sort","Sortiert Zahlen mit verschieden Sortieralgorithmen")
                 .addOption(OptionType.STRING, "liste", "Liste Zahlen(Zahlen mit Leerzeichzen getrennt )", true, false),
                 Commands.slash("settimeout","Setzt eine neuen Timeoutwert für den Bot")
-                        .addOption(OptionType.INTEGER, "timeout", "timeout in s", true, false)
+                        .addOption(OptionType.INTEGER, "timeout", "timeout in s(optional Zeiteinheit als 2. Parameter)", true, false)
+                        .addOption(OptionType.STRING, "zeiteinheit", "Zeiteinheit(Erlaubte Werte ms,s,min,h)", false, true)
             ).queue();
+
         timer = new Timer();
-        task = new Meow(channelmap.get("meow"));
+        task = new Meow(meow);
         /*timer.schedule(task,3000,3000);*/
         timer.schedule(task,600000,600000);
+
+    }
+
+    public void load_channels(){
         List <TextChannel> channels = guild.getTextChannels();
         List <VoiceChannel> voicechannels = guild.getVoiceChannels();
         for (TextChannel channel : channels){
@@ -151,7 +164,12 @@ public class Bot extends ListenerAdapter implements Runnable{
         for (VoiceChannel channel :voicechannels){
             voicechannelmap.put(channel.getName(),channel);
         }
+        allgemein = channelmap.get("allgemein");
+        botzentrale = channelmap.get("botzentrale");
+        meow = channelmap.get("meow");
+        main = voicechannelmap.get("Illegal Rave Party");
     }
+
     @Override
     public void onCommandAutoCompleteInteraction(CommandAutoCompleteInteractionEvent event) {
         if (event.getName().equals("clear") && event.getFocusedOption().getName().equals("kanal")) {
@@ -165,6 +183,13 @@ public class Bot extends ListenerAdapter implements Runnable{
         }
         if (event.getName().equals("join") && event.getFocusedOption().getName().equals("kanal")) {
             List<Command.Choice> options =voicechannelmap.keySet().stream()
+                    .filter(word -> word.startsWith(event.getFocusedOption().getValue())) // only display words that start with the user's current input
+                    .map(word -> new Command.Choice(word, word)) // map the words to choices
+                    .collect(Collectors.toList());
+            event.replyChoices(options).queue();
+        }
+        if (event.getName().equals("settimeout") && event.getFocusedOption().getName().equals("zeiteinheit")) {
+            List<Command.Choice> options =zeiteinheiten.keySet().stream()
                     .filter(word -> word.startsWith(event.getFocusedOption().getValue())) // only display words that start with the user's current input
                     .map(word -> new Command.Choice(word, word)) // map the words to choices
                     .collect(Collectors.toList());
@@ -614,7 +639,24 @@ public class Bot extends ListenerAdapter implements Runnable{
         }
     }
     public void set_timeout(SlashCommandInteractionEvent event){
-        timeout = Integer.parseInt(event.getOption("timeout").getAsString())*1000;
+        timeout = Integer.parseInt(event.getOption("timeout").getAsString());
+        String zeiteinheit = "s";
+        if (event.getOptions().size()>1){
+             zeiteinheit = event.getOption("zeiteinheit").getAsString();
+        }
+        if(!zeiteinheiten.containsKey(zeiteinheit)){
+            event.getChannel().sendMessage("Ungültige Zeiteinheit: "+zeiteinheit)
+                    .addContent("Erlaubte Zeiteinheiten sind:")
+                    .addContent("ms für Millisekunden")
+                    .addContent("s für Sekunden")
+                    .addContent("min für Minuten")
+                    .addContent("h für Stunden")
+                    .queue();
+            return;
+        }
+        event.getChannel().sendMessage("Neuer Timeout "+timeout+" "+zeiteinheit).queue();
+        timeout *= zeiteinheiten.get(zeiteinheit);
+        System.out.println(timeout);
         reset_timer();
     }
     public void reset_timer(){
