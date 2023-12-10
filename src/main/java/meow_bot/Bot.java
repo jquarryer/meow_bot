@@ -112,31 +112,31 @@ public class Bot extends ListenerAdapter implements Runnable{
                         .addOption(OptionType.STRING, "kanal", "Kanalname", true, false),
                 Commands.slash("clear","Löscht alle Nachrichten aus angegebenen Textkanälen")
                         .addOption(OptionType.STRING, "kanal", "Kanalname(all für alle Hauptkanäle),nichts für aktuellen Kanal", false, true),
-                Commands.slash("play","Teile uns deine Kritik mit")
+                Commands.slash("play","Spielt angegbene YT URL/Suchergebnis ab (Funktioniert mit Playlist) ")
                         .addOption(OptionType.STRING, "name", "Url oder Name", true, false),
-                Commands.slash("stop","Teile uns deine Kritik mit"),
-                Commands.slash("skip","Teile uns deine Kritik mit"),
-                Commands.slash("pause","Teile uns deine Kritik mit"),
-                Commands.slash("shuffle","Teile uns deine Kritik mit"),
-                Commands.slash("clown","Teile uns deine Kritik mit"),
-                Commands.slash("queue","Teile uns deine Kritik mit"),
-                Commands.slash("join","Teile uns deine Kritik mit")
-                        .addOption(OptionType.STRING, "kanal", "Kanalname", false, true),
+                Commands.slash("stop","Stopt die Audioausgabe, löscht die Queue und disconnect aus Voice channel"),
+                Commands.slash("skip","Überspringt den aktuellen Song"),
+                Commands.slash("pause","Pausiert die Audiowiedergabe"),
+                Commands.slash("shuffle","Mischt die Queue durch"),
+                Commands.slash("clown","Gibt den größten Clown aus (du)"),
+                Commands.slash("queue","Zeigt die nächsten 10 Songs in der Queue"),
+                Commands.slash("join","Lässt den Bot einen Voicechannel beitreten")
+                        .addOption(OptionType.STRING, "kanal", "Kanalname(Keine Angabe = aktueller Channel) ", false, true),
                 Commands.slash("help","Teile uns deine Kritik mit"),
-                Commands.slash("rec","Teile uns deine Kritik mit")
-                        .addOption(OptionType.INTEGER, "index", "index", false, false),
-                Commands.slash("now_playing","Teile uns deine Kritik mit"),
-                Commands.slash("remove","Teile uns deine Kritik mit")
-                .addOption(OptionType.INTEGER, "index", "index", false, false),
-                Commands.slash("bogosort","Teile uns deine Kritik mit")
-                .addOption(OptionType.STRING, "liste", "Liste", true, false),
-                Commands.slash("bubblesort","Teile uns deine Kritik mit")
-                .addOption(OptionType.STRING, "liste", "Liste", true, false),
-                Commands.slash("mergesort","Teile uns deine Kritik mit")
-                .addOption(OptionType.STRING, "liste", "Liste", true, false),
-                Commands.slash("sort","Teile uns deine Kritik mit")
-                .addOption(OptionType.STRING, "liste", "Liste", true, false),
-                Commands.slash("settimeout","Teile uns deine Kritik mit")
+                Commands.slash("rec","Zeigt die Vorschläge aus musikvorschläge an")
+                        .addOption(OptionType.INTEGER, "index", "Fügt den Song mit der Nummner der Queue hinzu ", false, false),
+                Commands.slash("now_playing","Zeigt den aktuellen Song an"),
+                Commands.slash("remove","Löscht Song aus der Queue")
+                .addOption(OptionType.INTEGER, "index", "Index des Song(max Value 10)", false, false),
+                Commands.slash("bogosort","Sortiert Zahlen mit Bogosort")
+                .addOption(OptionType.STRING, "liste", "Liste Zahlen(Zahlen mit Leerzeichzen getrennt )", true, false),
+                Commands.slash("bubblesort","Sortiert Zahlen mit Bubblesort")
+                .addOption(OptionType.STRING, "liste", "Liste Zahlen(Zahlen mit Leerzeichzen getrennt )", true, false),
+                Commands.slash("mergesort","Sortiert Zahlen mit Mergesort")
+                .addOption(OptionType.STRING, "liste", "Liste Zahlen(Zahlen mit Leerzeichzen getrennt )", true, false),
+                Commands.slash("sort","Sortiert Zahlen mit verschieden Sortieralgorithmen")
+                .addOption(OptionType.STRING, "liste", "Liste Zahlen(Zahlen mit Leerzeichzen getrennt )", true, false),
+                Commands.slash("settimeout","Setzt eine neuen Timeoutwert für den Bot")
                         .addOption(OptionType.INTEGER, "timeout", "timeout in s", true, false)
             ).queue();
         timer = new Timer();
