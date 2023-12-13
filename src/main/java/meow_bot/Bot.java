@@ -26,6 +26,8 @@ import net.dv8tion.jda.api.interactions.components.text.TextInputStyle;
 import net.dv8tion.jda.api.interactions.modals.Modal;
 import net.dv8tion.jda.api.managers.AudioManager;
 import net.dv8tion.jda.api.requests.GatewayIntent;
+import net.dv8tion.jda.api.requests.Route;
+
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -82,6 +84,7 @@ public class Bot extends ListenerAdapter implements Runnable{
                 .enableIntents(GatewayIntent.GUILD_MODERATION)
                 .setActivity(Activity.competing("Gigacat: Mega eraser of worlds"))
                 .build();
+        
     }
 
     @Override
@@ -366,8 +369,44 @@ public class Bot extends ListenerAdapter implements Runnable{
         }
         String title = audioPlayer.getPlayingTrack().getInfo().title;
         String author = audioPlayer.getPlayingTrack().getInfo().author;
-
-        botzentrale.sendMessage("Now playing: **`" + title + "`** by **`" + author + "`**.").queue();
+        long duration = audioPlayer.getPlayingTrack().getDuration()/1000;
+        long position = audioPlayer.getPlayingTrack().getPosition()/1000;
+        long duration_min = duration / 60;
+        long duration_s = duration%60;
+        long position_min = position / 60;
+        long position_s = position%60;
+        System.out.println(duration);
+        System.out.println(duration_min);
+        System.out.println(duration_s);
+        System.out.println(position_min);
+        System.out.println(position_s);
+        String s1= "";
+        String s2= "";
+        if(duration_s<10L){
+            s2 = "0";
+        }
+        if(position_s<10L){
+            s1 = "0";
+        }
+        long percent = position*100/duration;
+        System.out.println(percent);
+        String loading_bar =loading_bar(percent);
+        botzentrale.sendMessage("Now playing: **`" + title + "`** by **`" + author + "`**.")
+                .addContent("\n"+position_min+":"+s1+position_s+"│"+loading_bar+"│"+duration_min+":"+s2+duration_s)
+                .queue();
+    }
+    public String loading_bar(long percent){
+        String end = "░";
+        String start = "█";
+        String output = "";
+        while (percent>5){
+            output += start;
+            percent -=5;
+        }
+        while(output.length()<20){
+            output +=end;
+        }
+        return output;
     }
     public void help(){
         botzentrale.sendMessage("List of Command: ")
@@ -569,6 +608,13 @@ public class Bot extends ListenerAdapter implements Runnable{
         PlayerManager.getInstance().loadAndPlay(botzentrale, url);
     }
     public void clear(SlashCommandInteractionEvent event) {
+        boolean is_admin = false;
+        for(Role rolle :  event.getMember().getRoles()){
+            if(rolle.getName().equals("1obercalmander") ||rolle.getName().equals("Oberstcalmandant")){
+                is_admin = true;
+                break;
+            }
+        }
         String msg = "";
         TextChannel tchannel;
         if(!event.getOptions().isEmpty()){
@@ -597,6 +643,15 @@ public class Bot extends ListenerAdapter implements Runnable{
             return;
         }
         TextChannel channel = channels.get(0);
+        if(meow != channel && botzentrale != channel && allgemein != channel){
+            if(!is_admin){
+                event.getChannel().sendMessage("Keine Berechtigung zum löschen ")
+                        .addContent("\nVorfall wird einen Administrator gemeldet")
+                        .queue();
+                System.out.println("Nutzer: "+event.getMember().getNickname());
+                return;
+            }
+        }
         delete_channelhistory(channel);
         botzentrale.sendMessage("Löschen abgeschlossen").queue();
     }
