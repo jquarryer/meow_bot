@@ -5,6 +5,7 @@ import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import io.github.cdimascio.dotenv.Dotenv;
 import meow_bot.lavaplayer.GuildMusicManager;
 import meow_bot.lavaplayer.PlayerManager;
+import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.*;
@@ -26,17 +27,21 @@ import net.dv8tion.jda.api.interactions.modals.Modal;
 import net.dv8tion.jda.api.managers.AudioManager;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.requests.RestAction;
-import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
 
+
+import java.net.URI;
+import java.net.URL;
+import java.net.URLConnection;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class Bot extends ListenerAdapter implements Runnable {
     public Guild guild;
-    public ArrayList<Thread> thread_list = new ArrayList<Thread>();
+    public ArrayList<Thread> thread_list = new ArrayList<>();
     public String content;
     public SlashCommandInteractionEvent event;
     public Timer timer;
@@ -47,7 +52,7 @@ public class Bot extends ListenerAdapter implements Runnable {
 
     private HashMap<String, VoiceChannel> voicechannelmap = new HashMap<>();
 
-    private HashMap<String, Integer> zeiteinheiten = new HashMap<>();
+    private final HashMap<String, Integer> zeiteinheiten = new HashMap<>();
 
     TextChannel allgemein;
     TextChannel botzentrale;
@@ -103,7 +108,7 @@ public class Bot extends ListenerAdapter implements Runnable {
             case "join" -> join(event);
             case "help" -> help();
             case "rec" -> get_recommendation(event);
-            case "now_playing" -> now_playing();
+            case "now_playing" -> lyric(event);
             case "remove" -> remove_from_queue(event);
             case "bogosort" -> bogosort(event);
             case "bubblesort" -> bubblesort(event);
@@ -151,12 +156,10 @@ public class Bot extends ListenerAdapter implements Runnable {
                         .addOption(OptionType.INTEGER, "timeout", "timeout in s(optional Zeiteinheit als 2. Parameter)", true, false)
                         .addOption(OptionType.STRING, "zeiteinheit", "Zeiteinheit(Erlaubte Werte ms,s,min,h)", false, true)
         ).queue();
-
         timer = new Timer();
         task = new Meow(meow);
         /*timer.schedule(task,3000,3000);*/
         timer.schedule(task, 600000, 600000);
-
     }
 
     public void load_channels() {
@@ -203,7 +206,7 @@ public class Bot extends ListenerAdapter implements Runnable {
 
     @Override
     public void onMessageReceived(MessageReceivedEvent event) {
-
+        System.out.println(event);
     }
 
     @Override
@@ -230,7 +233,7 @@ public class Bot extends ListenerAdapter implements Runnable {
         if (event.getModalId().equals("Beschwerdeformula")) {
             String muell = event.getValue("muell").getAsString();
             if (!event.getMember().isOwner()) {
-                event.getMember().timeoutFor(30, TimeUnit.SECONDS);
+                event.getMember().timeoutFor(30, TimeUnit.SECONDS).queue();
             }
             event.reply("Kritik ist unerwünscht. " + event.getMember().getNickname() + " du Geringverdiener").setEphemeral(true).queue();
         }
@@ -257,24 +260,21 @@ public class Bot extends ListenerAdapter implements Runnable {
                 System.out.println("sort finished");
                 return;
             }
-            try {
-                Thread.sleep(5000);
-            } catch (Exception e) {
-                if (thread.isAlive()) {
-                    thread.interrupt();
-                    System.out.println("Bogosort killed");
-                }
-                if (thread2.isAlive()) {
-                    thread2.interrupt();
-                    System.out.println("Bubblesort killed");
-                }
-                if (thread3.isAlive()) {
-                    thread3.interrupt();
-                    System.out.println("Mergesort killed");
+                if(!sleep(5000)){
+                    if (thread.isAlive()) {
+                        thread.interrupt();
+                        System.out.println("Bogosort killed");
+                    }
+                    if (thread2.isAlive()) {
+                        thread2.interrupt();
+                        System.out.println("Bubblesort killed");
+                    }
+                    if (thread3.isAlive()) {
+                        thread3.interrupt();
+                        System.out.println("Mergesort killed");
+                    }
                 }
             }
-        }
-
     }
 
     public void kill() {
@@ -288,16 +288,15 @@ public class Bot extends ListenerAdapter implements Runnable {
     }
 
     public void bogosort(SlashCommandInteractionEvent event) {
-        ArrayList<Integer> list = new ArrayList<Integer>();
+        ArrayList<Integer> list = new ArrayList<>();
         String msg = (event.getOption("liste").getAsString());
         String[] splitted = msg.split("\\s+");
-        String answer = "";
-        int tries = 0;
-        for (int i = 0; i < splitted.length; i++) {
+
+        for (String s : splitted) {
             try {
-                list.add(Integer.valueOf(splitted[i]));
+                list.add(Integer.valueOf(s));
             } catch (NumberFormatException e) {
-                botzentrale.sendMessage("Ungültige Eingabe: " + splitted[i] + " ist keine Zahl").queue();
+                botzentrale.sendMessage("Ungültige Eingabe: " + s + " ist keine Zahl").queue();
                 return;
             }
         }
@@ -306,18 +305,18 @@ public class Bot extends ListenerAdapter implements Runnable {
         if (list.isEmpty()) {
             return;
         }
-        tries = list.get(list.size() - 1);
+        int tries = list.get(list.size() - 1);
         list.remove(list.size() - 1);
-        answer = list.toString();
+        String answer = list.toString();
         botzentrale.sendMessage("Bogosort: Liste: " + answer + " Anzahl Versuche:" + tries).queue();
         System.out.println("Bogosort finished");
     }
 
     public void mergesort(SlashCommandInteractionEvent event) {
-        ArrayList<Integer> list = new ArrayList<Integer>();
+        ArrayList<Integer> list = new ArrayList<>();
         String msg = (event.getOption("liste").getAsString());
         String[] splitted = msg.split("\\s+");
-        String answer = "";
+
         int tries = 0;
         for (int i = 0; i < splitted.length; i++) {
             try {
@@ -334,16 +333,15 @@ public class Bot extends ListenerAdapter implements Runnable {
         }
         tries = list.get(list.size() - 1);
         list.remove(list.size() - 1);
-        answer = list.toString();
+        String answer = list.toString();
         botzentrale.sendMessage("Mergesort: Liste: " + answer + " Anzahl Tauschoperationen:" + tries).queue();
         System.out.println("Mergesort finished");
     }
 
     public void bubblesort(SlashCommandInteractionEvent event) {
-        ArrayList<Integer> list = new ArrayList<Integer>();
+        ArrayList<Integer> list = new ArrayList<>();
         String msg = (event.getOption("liste").getAsString());
         String[] splitted = msg.split("\\s+");
-        String answer = "";
         int operations = 0;
         for (int i = 0; i < splitted.length; i++) {
             try {
@@ -360,7 +358,7 @@ public class Bot extends ListenerAdapter implements Runnable {
         }
         operations = list.get(list.size() - 1);
         list.remove(list.size() - 1);
-        answer = list.toString();
+        String answer = list.toString();
         botzentrale.sendMessage("Bubblesort: Liste: " + answer + " Anzahl Tauschoperationen:" + operations).queue();
         System.out.println("Bubblesort finished");
     }
@@ -400,7 +398,7 @@ public class Bot extends ListenerAdapter implements Runnable {
         RestAction<Message> action = botzentrale.sendMessage("Now playing: **`" + title + "`** by **`" + author + "`**.")
                 .addContent("\n" + position_min + ":" + s1 + position_s + "│" + loading_bar + "│" + duration_min + ":" + s2 + duration_s);
         Message m = action.complete();
-        while (audioPlayer.getPlayingTrack() != null){
+        while (audioPlayer.getPlayingTrack() != null && !Thread.interrupted()){
             if(track != audioPlayer.getPlayingTrack()){
                 track = audioPlayer.getPlayingTrack();
                 title = track.getInfo().title;
@@ -415,7 +413,9 @@ public class Bot extends ListenerAdapter implements Runnable {
                     s2 = "";
                 }
             }
-            sleep(969);
+            if (!sleep(1000)){
+                break;
+            }
             position = track.getPosition() / 1000;
             position_min = position / 60;
             position_s = position % 60;
@@ -429,11 +429,8 @@ public class Bot extends ListenerAdapter implements Runnable {
             loading_bar = loading_bar(percent);
             if(audioPlayer.isPaused()){
                 m.editMessage("Paused: **`" + title + "`** by **`" + author + "`**."+"\n" + position_min + ":" + s1 + position_s + "│" + loading_bar + "│" + duration_min + ":" + s2 + duration_s).queue();
-                while (true){
+                while (audioPlayer.isPaused()){
                     sleep(100);
-                    if (!audioPlayer.isPaused()){
-                        break;
-                    }
                 }
             }
             m.editMessage("Now playing: **`" + title + "`** by **`" + author + "`**."+"\n" + position_min + ":" + s1 + position_s + "│" + loading_bar + "│" + duration_min + ":" + s2 + duration_s).queue();
@@ -472,8 +469,7 @@ public class Bot extends ListenerAdapter implements Runnable {
     }
 
     public void remove_from_queue(SlashCommandInteractionEvent event) {
-        int index = 0;
-        index = (event.getOption("index")).getAsInt();
+        int index = (event.getOption("index")).getAsInt();
         final GuildMusicManager musicManager = PlayerManager.getInstance().getMusicManager(guild);
         if (index > 10) {
             botzentrale.sendMessage("Nur Zahlen bis 10 sind erlaubt").queue();
@@ -568,7 +564,7 @@ public class Bot extends ListenerAdapter implements Runnable {
     public void shuffle(SlashCommandInteractionEvent event) {
         Random rand = new Random();
         final GuildMusicManager musicManager = PlayerManager.getInstance().getMusicManager(guild);
-        List<AudioTrack> bufferlist = new ArrayList<AudioTrack>(musicManager.scheduler.queue);
+        List<AudioTrack> bufferlist = new ArrayList<>(musicManager.scheduler.queue.size());
         while (!bufferlist.isEmpty()) {
             AudioTrack randomTrack = bufferlist.get(rand.nextInt(bufferlist.size()));
             bufferlist.remove(randomTrack);
@@ -645,12 +641,22 @@ public class Bot extends ListenerAdapter implements Runnable {
             manager.openAudioConnection(channel);
         }
         PlayerManager.getInstance().loadAndPlay(botzentrale, url);
+/*        String video_id = url.substring(url.indexOf("v=")+2);
+        System.out.println(video_id);
+        String thumbnail_link = "https://img.youtube.com/vi/"+video_id +"/0.jpg";
+        EmbedBuilder eb = new EmbedBuilder();
+        eb.setAuthor("KekW");
+        System.out.println(thumbnail_link);
+        eb.setThumbnail(thumbnail_link);
+        RestAction<Message> action =  meow.sendMessage("test").addEmbeds(eb.build());
+        action.complete();*/
     }
 
     public void play(String url, VoiceChannel channel) {
         if (url.startsWith("http")) {
             System.out.println(url);
-        } else {
+        }
+        else {
             url = "ytsearch:" + url + " audio";
             System.out.println(url);
         }
@@ -674,7 +680,7 @@ public class Bot extends ListenerAdapter implements Runnable {
         if (!event.getOptions().isEmpty()) {
             msg = (event.getOption("kanal")).getAsString();
         }
-        if (msg.equals("")) {
+        if (msg.isEmpty()) {
             tchannel = event.getChannel().asTextChannel();
             if (meow != tchannel && botzentrale != tchannel && allgemein != tchannel) {
                 tchannel.sendMessage("Ungültiger Channel").queue();
@@ -711,15 +717,19 @@ public class Bot extends ListenerAdapter implements Runnable {
     }
 
     public void delete_channelhistory(TextChannel channel) {
+        int counter = 0;
         MessageHistory history = new MessageHistory(channel);
-        List<Message> messages = history.retrievePast(100).complete();
-        if (messages.isEmpty()) {
-            return;
+        List<Message> messages = history.retrievePast(10).complete();
+        while (!messages.isEmpty()){
+            for (Message message : messages){
+                message.delete().complete();
+                counter++;
+                if(counter>=5){
+                    counter = 0;
+                }
+            }
+            messages = history.retrievePast(10).complete();
         }
-        messages.forEach(message -> {
-            //message.delete().queue();
-            message.delete().complete();
-        });
     }
 
     public void get_recommendation(SlashCommandInteractionEvent event) {
@@ -777,13 +787,28 @@ public class Bot extends ListenerAdapter implements Runnable {
         timer.schedule(task, timeout, timeout);
     }
 
-    public void sleep(int duration){
+    public boolean sleep(int duration){
         try {
             Thread.sleep(duration);
         } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+            return false;
         }
+        return true;
     }
 
+    public void lyric(SlashCommandInteractionEvent event){
+        final GuildMusicManager musicManager = PlayerManager.getInstance().getMusicManager(guild);
+        final AudioPlayer audioPlayer = musicManager.audioPlayer;
+//        String url = "https://genius.com/search?q="+audioPlayer.getPlayingTrack().getInfo().title;
+        System.out.println(content);
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("http://genius.com/search?q=everythingblack"))
+                .build();
+        client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                .thenApply(HttpResponse::body)
+                .thenAccept(System.out::println)
+                .join();
+    }
 
 }
