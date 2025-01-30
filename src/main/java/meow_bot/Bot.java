@@ -5,7 +5,6 @@ import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import io.github.cdimascio.dotenv.Dotenv;
 import meow_bot.lavaplayer.GuildMusicManager;
 import meow_bot.lavaplayer.PlayerManager;
-import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.*;
@@ -28,10 +27,7 @@ import net.dv8tion.jda.api.managers.AudioManager;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.requests.RestAction;
 
-
 import java.net.URI;
-import java.net.URL;
-import java.net.URLConnection;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -108,14 +104,14 @@ public class Bot extends ListenerAdapter implements Runnable {
             case "join" -> join(event);
             case "help" -> help();
             case "rec" -> get_recommendation(event);
-            case "now_playing" -> lyric(event);
+            case "now_playing" -> now_playing();
             case "remove" -> remove_from_queue(event);
             case "bogosort" -> bogosort(event);
             case "bubblesort" -> bubblesort(event);
             case "mergesort" -> mergesort(event);
             case "sort" -> sort(event);
+            case "instant_button" -> instant_button(event);
         }
-
     }
 
     @Override
@@ -130,6 +126,8 @@ public class Bot extends ListenerAdapter implements Runnable {
                         .addOption(OptionType.STRING, "kanal", "Kanalname(all für alle Hauptkanäle),nichts für aktuellen Kanal", false, true),
                 Commands.slash("play", "Spielt angegbene YT URL/Suchergebnis ab (Funktioniert mit Playlist) ")
                         .addOption(OptionType.STRING, "name", "Url oder Name", true, false),
+                Commands.slash("instant_button", "Spielt Instant Button ab")
+                        .addOption(OptionType.STRING, "name", "Name des Buttons", true, false),
                 Commands.slash("stop", "Stopt die Audioausgabe, löscht die Queue und disconnect aus Voice channel"),
                 Commands.slash("skip", "Überspringt den aktuellen Song"),
                 Commands.slash("pause", "Pausiert die Audiowiedergabe"),
@@ -251,9 +249,9 @@ public class Bot extends ListenerAdapter implements Runnable {
     public void sort(SlashCommandInteractionEvent event) {
         Thread thread = new Thread(new Bot(guild, channelmap, voicechannelmap, "bogosort", event));
         thread.start();
-        Thread thread2 = new Thread(new Bot(guild, channelmap, voicechannelmap, "bogosort", event));
+        Thread thread2 = new Thread(new Bot(guild, channelmap, voicechannelmap, "mergesort", event));
         thread2.start();
-        Thread thread3 = new Thread(new Bot(guild, channelmap, voicechannelmap, "bogosort", event));
+        Thread thread3 = new Thread(new Bot(guild, channelmap, voicechannelmap, "bubblesort", event));
         thread3.start();
         while (!Thread.currentThread().isInterrupted()) {
             if (!thread.isAlive() && !thread2.isAlive() && !thread3.isAlive()) {
@@ -564,7 +562,8 @@ public class Bot extends ListenerAdapter implements Runnable {
     public void shuffle(SlashCommandInteractionEvent event) {
         Random rand = new Random();
         final GuildMusicManager musicManager = PlayerManager.getInstance().getMusicManager(guild);
-        List<AudioTrack> bufferlist = new ArrayList<>(musicManager.scheduler.queue.size());
+        List<AudioTrack> bufferlist= new ArrayList<>(musicManager.scheduler.queue);
+        System.out.println(bufferlist.size());
         while (!bufferlist.isEmpty()) {
             AudioTrack randomTrack = bufferlist.get(rand.nextInt(bufferlist.size()));
             bufferlist.remove(randomTrack);
@@ -623,10 +622,11 @@ public class Bot extends ListenerAdapter implements Runnable {
 
     public void play(SlashCommandInteractionEvent event) {
         String url = (event.getOption("name").getAsString());
+//        PlayerManager.getInstance().loadAndPlay(botzentrale, url);
         if (url.startsWith("http")) {
             System.out.println(url);
         } else {
-            url = "ytsearch:" + url + " audio";
+            url = "https://www.myinstants.com/media/sounds/" + url +".mp3";
             System.out.println(url);
         }
         final AudioManager manager = guild.getAudioManager();
@@ -640,16 +640,8 @@ public class Bot extends ListenerAdapter implements Runnable {
             }
             manager.openAudioConnection(channel);
         }
+        System.out.println(url);
         PlayerManager.getInstance().loadAndPlay(botzentrale, url);
-/*        String video_id = url.substring(url.indexOf("v=")+2);
-        System.out.println(video_id);
-        String thumbnail_link = "https://img.youtube.com/vi/"+video_id +"/0.jpg";
-        EmbedBuilder eb = new EmbedBuilder();
-        eb.setAuthor("KekW");
-        System.out.println(thumbnail_link);
-        eb.setThumbnail(thumbnail_link);
-        RestAction<Message> action =  meow.sendMessage("test").addEmbeds(eb.build());
-        action.complete();*/
     }
 
     public void play(String url, VoiceChannel channel) {
@@ -796,19 +788,42 @@ public class Bot extends ListenerAdapter implements Runnable {
         return true;
     }
 
-    public void lyric(SlashCommandInteractionEvent event){
-        final GuildMusicManager musicManager = PlayerManager.getInstance().getMusicManager(guild);
-        final AudioPlayer audioPlayer = musicManager.audioPlayer;
-//        String url = "https://genius.com/search?q="+audioPlayer.getPlayingTrack().getInfo().title;
-        System.out.println(content);
+
+
+    public void instant_button(SlashCommandInteractionEvent event){
+        VoiceChannel channel = null;
+        TextChannel botzentrale = channelmap.get("botzentrale");
+        String name =  event.getOption("name").getAsString();
+        if (name.contains(" ")){
+            name = name.replaceAll("\\s","+");
+        }
+        String url = "https://www.myinstants.com/en/search/?name=" +name;
+        System.out.println(url);
+        HttpResponse<String> response = null;
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create("http://genius.com/search?q=everythingblack"))
+                .uri(URI.create(url))
                 .build();
-        client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                .thenApply(HttpResponse::body)
-                .thenAccept(System.out::println)
-                .join();
+        try {
+            response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        } catch (Exception e) {
+            botzentrale.sendMessage("Opsi dopsy Https querry not in ferry").queue();
+        }
+        String body = response.body().toString();
+        int index = body.indexOf(".mp3");
+        body = body.substring(0,index+4);
+        index = body.indexOf("play('");
+        body = body.substring(index+6);
+        String querry = "https://www.myinstants.com/"+body;
+        System.out.println(querry);
+        try {
+            channel = event.getMember().getVoiceState().getChannel().asVoiceChannel();
+        }
+        catch(NullPointerException e) {
+            botzentrale.sendMessage("User not in Channel").queue();
+            return;
+        }
+        play(querry,channel);
     }
 
 }
